@@ -4,43 +4,51 @@ var url = require('url'); // url이란 모듈을 url이란 이름으로 쓰겠�
 // 모듈 : nodejs의 수많은 기능들을 비슷한것끼리 그룹핑한것을 모듈이라고 한다.
 //
 
+// refactoring : 내부의 코드를 개선한다.
+// 함수와 같은 것을 사용해서 처음부터 코드를 쓴다는 건 천재나 하는 것
+// 그 고수도 처음부터 그렇게 한것은 아닐거다.
+// 투박해도 동작하는 코드를 짠 다음에 리팩토링 하는 것이 중요하다.
+
 
 var qs = require('querystring') ;
-
-function templateHTML(title, list, body, control){
-    return `
-    <!doctype html>
-    <html>
-    <head>
-      <title>WEB1 - ${title} </title>
-      <meta charset="utf-8">
-    </head>
-    <body>
-      <h1><a href="/">WEB</a></h1>
-      <!--if문에 걸린다.홈으로 갔을 때 index.html로..-->
-      ${list}
-      ${control}
-      ${body}
-    </body>
-    </html>
-    `
-}
-
-function templateList(filelist){
-    var list = '<ul>';
-    var i = 0;
-    while(i < filelist.length){
-        list = list + `
-        <li>
-            <a href= "/?id=${filelist[i]}">
-                ${filelist[i]}
-            </a>
-        </li>`
-        i = i + 1;
+var template = {
+     HTML : function (title, list, body, control){
+        return `
+        <!doctype html>
+        <html>
+        <head>
+          <title>WEB1 - ${title} </title>
+          <meta charset="utf-8">
+        </head>
+        <body>
+          <h1><a href="/">WEB</a></h1>
+          <!--if문에 걸린다.홈으로 갔을 때 index.html로..-->
+          ${list}
+          ${control}
+          ${body}
+        </body>
+        </html>
+        `
+    },
+    list : function (filelist){
+        var list = '<ul>';
+        var i = 0;
+        while(i < filelist.length){
+            list = list + `
+            <li>
+                <a href= "/?id=${filelist[i]}">
+                    ${filelist[i]}
+                </a>
+            </li>`
+            i = i + 1;
+        }
+        list = list + '</ul>'
+        return list;
     }
-    list = list + '</ul>'
-    return list;
 }
+
+
+
 
 var app = http.createServer(function(request,response){
     //var url = request.url;
@@ -97,15 +105,25 @@ var app = http.createServer(function(request,response){
                   <li><a href="3.html?id=JavaScript">JavaScript</a></li>
                 </ol>
                 `*/
-                var list = templateList(filelist);
-                var template = templateHTML(
+                // var list = templateList(filelist);
+                // var template = templateHTML(
+                //     title,
+                //     list,
+                //     `<h2>${title}</h2>${description}`,
+                //     `<a href="/create">create</a>`
+                // );
+                // response.writeHead(200);
+                // response.end(template);
+
+                var list = template.list(filelist);
+                var html = template.HTML(
                     title,
                     list,
                     `<h2>${title}</h2>${description}`,
                     `<a href="/create">create</a>`
                 );
                 response.writeHead(200);
-                response.end(template);
+                response.end(html);
             });
 
 
@@ -116,8 +134,8 @@ var app = http.createServer(function(request,response){
 
                 fs.readFile(`data/${queryData.id}`,'utf8',function(err,description){
                 var title = queryData.id
-                var list = templateList(filelist);
-                var template = templateHTML(
+                var list = template.list(filelist);
+                var html = template.HTML(
                     title,
                     list,
                     `<h2>${title}</h2>${description}`,
@@ -130,7 +148,7 @@ var app = http.createServer(function(request,response){
                     `
                 );
                 response.writeHead(200);
-                response.end(template);
+                response.end(html);
             })
 
             });
@@ -143,8 +161,8 @@ var app = http.createServer(function(request,response){
         fs.readdir('./data',function(err, filelist){
             var title = "WEB - create";
 
-            var list = templateList(filelist);
-            var template = templateHTML(title, list, `
+            var list = template.list(filelist);
+            var html= template.HTML(title, list, `
                 <form action="/create_process" method = "post">
                     <p><input type = "text" name = "title" placeholder="title"></p>
                     <p>
@@ -158,7 +176,7 @@ var app = http.createServer(function(request,response){
             '');
 
             response.writeHead(200);
-            response.end(template)
+            response.end(html)
         })
 
     } else if ( pathname === "/create_process"){
@@ -195,8 +213,8 @@ var app = http.createServer(function(request,response){
         fs.readdir('./data', function(err, filelist){
             fs.readFile(`data/${queryData.id}`,'utf8',function(err, description){
                 var title = queryData.id;
-                var list = templateList(filelist);
-                var template = templateHTML(title, list,
+                var list = template.list(filelist);
+                var html = template.HTML(title, list,
                 `
                 <form action="/update_process" method = "post">
                     <input type="hidden" name="id" value=${title}>
@@ -214,7 +232,7 @@ var app = http.createServer(function(request,response){
                  <a href="/update?id=${title}">update</a>`
             );
             response.writeHead(200);
-            response.end(template);
+            response.end(html);
             })
         })
     } else if(pathname === "/update_process"){
