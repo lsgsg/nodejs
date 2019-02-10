@@ -4,7 +4,10 @@ var url = require('url'); // url이란 모듈을 url이란 이름으로 쓰겠�
 // 모듈 : nodejs의 수많은 기능들을 비슷한것끼리 그룹핑한것을 모듈이라고 한다.
 //
 
-function templateHTML(title, list, body){
+
+var qs = require('querystring') ;
+
+function templateHTML(title, list, body, control){
     return `
     <!doctype html>
     <html>
@@ -16,6 +19,7 @@ function templateHTML(title, list, body){
       <h1><a href="/">WEB</a></h1>
       <!--if문에 걸린다.홈으로 갔을 때 index.html로..-->
       ${list}
+      ${control}
       ${body}
     </body>
     </html>
@@ -97,7 +101,8 @@ var app = http.createServer(function(request,response){
                 var template = templateHTML(
                     title,
                     list,
-                    `<h2>${title}</h2>${description}`
+                    `<h2>${title}</h2>${description}`,
+                    `<a href="/create">create</a>`
                 );
                 response.writeHead(200);
                 response.end(template);
@@ -115,7 +120,14 @@ var app = http.createServer(function(request,response){
                 var template = templateHTML(
                     title,
                     list,
-                    `<h2>${title}</h2>${description}`
+                    `<h2>${title}</h2>${description}`,
+                    `<a href="/create">create</a>
+                     <a href="/update?id=${title}">update</a>
+                     <form action="delete_process" method="post">
+                         <input type="hidden" name="id" value="${title}">
+                         <input type="submit" value="delete">
+                     </form>
+                    `
                 );
                 response.writeHead(200);
                 response.end(template);
@@ -126,6 +138,124 @@ var app = http.createServer(function(request,response){
 
 
 
+    } else if(pathname === '/create'){
+
+        fs.readdir('./data',function(err, filelist){
+            var title = "WEB - create";
+
+            var list = templateList(filelist);
+            var template = templateHTML(title, list, `
+                <form action="/create_process" method = "post">
+                    <p><input type = "text" name = "title" placeholder="title"></p>
+                    <p>
+                        <textarea name="description"></textarea>
+                    </p>
+                    <p>
+                        <input type="submit">
+                    </p>
+                </form>
+                `,
+            '');
+
+            response.writeHead(200);
+            response.end(template)
+        })
+
+    } else if ( pathname === "/create_process"){
+        // 검색 node js write file
+
+        var body = "";
+        request.on('data', function(data){ // callback부분
+            // request.on data는 웹브라우저가 post 방식으로 데이터를 전송할때,
+            // 데이터가 엄청많다고 가정했을 때, 그 데이터를 한번에 처리하는 것은  프로그램에 문제가 생길 수 있다.
+            // 그래서 nodejs에서는 post방식으로 전송되는 데이터가 많은 경우를 대비해서 어떤 특정한
+            // 만약 100이 있으면 조각조각의 양들을 서버쪽에서 수신할때마다 서버는 callback함수를 호출하게 되어있다.
+            // 그리고 호출할 때 data란느 인자를 통해 수신한 정보를 주는 것으로 약속되어 있다.
+            body = body + data;
+            // callback이 실행될때마다 data를 추가하주는 것
+            // 조각조각 정보가 들어오다가... 정보가 끝이 나면 'end'에 해당되는 calback이 실행되도록 할것이다. ↓
+        });
+        request.on('end' , function(){
+                var post = qs.parse(body);
+                var title = post.title;
+                var description = post.description;
+                // 파일을 만든 뒤 callback함수를 사용하여 리다이렉션 한다.
+                fs.writeFile(`data/${title}`, description,'utf8', function( err ){
+                    response.writeHead(302, {Location : `/?id=${title}`});
+                    // 리다이렉션 : 302
+                    response.end();
+                })
+                //console.log(post.title);
+        });
+        //createServer는 nodejs 가 서버로 들어올때 마다 호출한다. 그때, 인자를 2개를 주는데 request에는 요청할때 웹브라우저가 우리에게 보낸 정보,
+        // response는 응답할때 우리가 웹브라우저할때 전송할 정보를 말한다.
+        // response.writeHead(200);
+        // response.end("성공적이다!")
+    } else if(pathname === "/update"){
+        fs.readdir('./data', function(err, filelist){
+            fs.readFile(`data/${queryData.id}`,'utf8',function(err, description){
+                var title = queryData.id;
+                var list = templateList(filelist);
+                var template = templateHTML(title, list,
+                `
+                <form action="/update_process" method = "post">
+                    <input type="hidden" name="id" value=${title}>
+                    <p><input type = "text" name = "title" value = ${title}></p>
+                    <p>
+                        <textarea name="description">${description}</textarea>
+                    </p>
+                    <p>
+                        <input type="submit">
+                    </p>
+                </form>
+
+                `,
+                `<a href="/create">create</a>
+                 <a href="/update?id=${title}">update</a>`
+            );
+            response.writeHead(200);
+            response.end(template);
+            })
+        })
+    } else if(pathname === "/update_process"){
+        var body = '';
+        request.on('data', function(data){
+            body = body + data
+
+        });
+        request.on('end', function(){
+            var post = qs.parse(body);
+            var id = post.id
+            var title = post.title;
+            var description = post.description;
+
+
+            // nodejs file rename 검색
+            // fs.rename(oldPath, newPath)
+            fs.rename(`data/${id}`,`data/${title}`, function(err){
+                fs.writeFile(`data/${title}`, description, 'utf8',
+                function(err){
+                    response.writeHead(302, {Location: `/?id=${title}`});
+                    response.end();
+                });
+            })
+        })
+    }  else if(pathname === "/delete_process"){
+        // nodejs delete file 검색
+        // 첫번째 검색결과 -> fs.unlink
+        var body = '';
+        request.on('data', function(data){
+            body = body + data
+
+        });
+        request.on('end', function(){
+            var post = qs.parse(body);
+            var id = post.id
+            fs.unlink(`data/${id}`, function(err){
+                response.writeHead(302, {location:`/`})
+                response.end();
+            })
+        });
     } else {
         response.writeHead(404);
         // 웹서버와 웹브라우저 사이에서 작동여부.. 기계와 기계가 통신하는 아주 간결한 약속 , 성공적이다. 200
